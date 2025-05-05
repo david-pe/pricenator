@@ -28,6 +28,7 @@
     "preview": "wix app preview",
     "generate": "wix app generate",
     "logs": "wix app logs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "update-types": "wix app update-types"
   }
 }

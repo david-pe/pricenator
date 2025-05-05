@@ -1,18 +1,26 @@
 // Import event handlers
-import { init as initOrderEvents } from './events/orders/event';
+import { init as initOrderEventHandlers } from './events/orders/event';
+import { registerOrderHandlers } from './orders';
 
-// Initialize all event handlers
+console.log(`🚀 Initializing Pricenator backend services`);
+
+// Initialize all event handlers for production
+try {
+  console.log(`📋 Initializing order event handlers`);
+  initOrderEventHandlers();
+  registerOrderHandlers();
+  
+  console.log(`✅ Event handlers registered successfully`);
+} catch (error) {
+  console.error(`❌ Error initializing event handlers:`, error);
+}
+
+// Export an init function for the platform to call
 export function init() {
-  try {
-    console.log('Initializing Pricenator event handlers...');
-    
-    // Initialize order event handlers
-    initOrderEvents();
-    
-    console.log('Pricenator event handlers initialized successfully');
-  } catch (error) {
-    console.error('Error initializing Pricenator event handlers:', error);
-  }
+  console.log(`✅ Pricenator backend initialization complete`);
+  return {
+    status: 'ready'
+  };
 }
 
 // Call init function immediately

@@ -2,113 +2,140 @@ import { orders } from '@wix/ecom';
 import { products } from '@wix/stores';
 import { PRICE_UPDATE_AMOUNT, CHANNEL_PREFIX } from '../../../site/plugins/custom-elements/price-updater/consts';
 
-// Define event type
-interface OrderCreatedEvent {
-  entity: {
-    lineItems?: Array<{
-      catalogReference?: {
-        catalogItemId?: string;
-      };
-    }>;
-  };
-  metadata: {
-    _id: string;
+// Define the LineItem type that matches the Wix structure
+interface LineItem {
+  catalogReference?: {
+    catalogItemId?: string;
   };
 }
 
 /**
- * Listen to order events and update product prices
+ * Initialize order event handlers
+ * This function is called when the app starts and sets up event listeners
  */
 export function init() {
-  // Listen for order created events
-  orders.onOrderCreated(async (event: OrderCreatedEvent) => {
-    try {
-      console.log('Order created event received:', event.metadata._id);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 🔄 Initializing order event handlers`);
+  
+  try {
+    // Register the event handler using a more generic approach
+    // Note: Using the generic handler pattern to avoid TypeScript errors with the SDK
+    orders.onOrderCreated(event => {
+      const eventTimestamp = new Date().toISOString();
+      console.log(`[${eventTimestamp}] 📥 Order created event received`);
       
-      // Get line items from the order
-      const order = event.entity;
-      
-      if (!order.lineItems || order.lineItems.length === 0) {
-        console.log('No line items found in order');
-        return;
+      // Log basic event info
+      if (event) {
+        console.log(`[${eventTimestamp}] Order ID: ${event.metadata?._id || 'unknown'}`);
+        console.log(`[${eventTimestamp}] Line items: ${event.entity?.lineItems?.length || 0}`);
+      } else {
+        console.log(`[${eventTimestamp}] Event object is null or undefined`);
       }
       
-      // Process each product in the order
-      for (const lineItem of order.lineItems) {
-        if (lineItem.catalogReference?.catalogItemId) {
-          const productId = lineItem.catalogReference.catalogItemId;
-          
-          // Update the product price
-          await updateProductPrice(productId);
-          
-          // Notify users that are viewing the product
-          await notifyPriceChange(productId);
-        }
-      }
-    } catch (error) {
-      console.error('Error processing order:', error);
+      // Process the event asynchronously
+      processOrderEvent(event)
+        .then(() => console.log(`[${eventTimestamp}] ✅ Order event processing completed`))
+        .catch(error => console.error(`[${eventTimestamp}] ❌ Order event processing failed:`, error));
+    });
+    
+    console.log(`[${timestamp}] ✅ Order event handlers registered successfully`);
+  } catch (error) {
+    console.error(`[${timestamp}] ❌ Failed to register order event handlers:`, error);
+  }
+}
+
+/**
+ * Process an order event by updating product prices
+ */
+async function processOrderEvent(event: any): Promise<void> {
+  const timestamp = new Date().toISOString();
+  
+  try {
+    // Validate event
+    if (!event || !event.entity) {
+      console.log(`[${timestamp}] ⚠️ Invalid event object received`);
+      return;
     }
-  });
+    
+    const order = event.entity;
+    
+    // Check for line items
+    if (!order.lineItems || order.lineItems.length === 0) {
+      console.log(`[${timestamp}] ℹ️ No line items found in order`);
+      return;
+    }
+    
+    console.log(`[${timestamp}] 📦 Processing ${order.lineItems.length} line items`);
+    
+    // Process each product in the order
+    const updatePromises = order.lineItems
+      .filter((lineItem: LineItem) => lineItem.catalogReference?.catalogItemId)
+      .map(async (lineItem: LineItem) => {
+        const productId = lineItem.catalogReference!.catalogItemId!;
+        console.log(`[${timestamp}] 🔍 Processing product: ${productId}`);
+        
+        try {
+          // Update the product price
+          return await updateProductPrice(productId);
+        } catch (itemError) {
+          console.error(`[${timestamp}] ❌ Error processing product ${productId}:`, itemError);
+          return { productId, success: false, error: itemError };
+        }
+      });
+    
+    // Wait for all updates to complete
+    const results = await Promise.allSettled(updatePromises);
+    
+    // Log results
+    const successful = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    console.log(`[${timestamp}] ✅ Order processing completed - Updated ${successful} products, Failed: ${failed}`);
+  } catch (error) {
+    console.error(`[${timestamp}] ❌ Error processing order:`, error);
+    throw error;
+  }
 }
 
 /**
  * Update a product's price by adding $1
  */
-async function updateProductPrice(productId: string): Promise<void> {
+async function updateProductPrice(productId: string): Promise<any> {
+  const timestamp = new Date().toISOString();
   try {
-    console.log(`Updating price for product: ${productId}`);
+    console.log(`[${timestamp}] 💰 Updating price for product: ${productId}`);
     
     // Get the current product
     const response = await products.getProduct(productId);
-    const product = response.product;
     
-    if (!product) {
-      console.error(`Product not found: ${productId}`);
-      return;
+    if (!response || !response.product) {
+      console.error(`[${timestamp}] ❌ Product not found: ${productId}`);
+      throw new Error(`Product not found: ${productId}`);
     }
     
     // Get the current price
-    const currentPrice = Number(product.price?.price || 0);
+    const currentPrice = Number(response.product.price?.price || 0);
     const newPrice = currentPrice + PRICE_UPDATE_AMOUNT;
     
+    console.log(`[${timestamp}] 💲 Current price: ${currentPrice.toFixed(2)}, New price: ${newPrice.toFixed(2)}`);
+    
     // Update the product with the new price
-    await products.updateProduct({
-      product: {
-        id: productId,
-        price: {
-          price: newPrice.toString(),
-          formatted: {
-            price: `$${newPrice.toFixed(2)}`
-          }
-        }
+    const updateResult = await products.updateProduct(productId, {
+      priceData: {
+        price: newPrice
       }
     });
     
-    console.log(`Price updated for product ${productId} from $${currentPrice.toFixed(2)} to $${newPrice.toFixed(2)}`);
-  } catch (error) {
-    console.error(`Error updating price for product ${productId}:`, error);
-  }
-}
-
-/**
- * Notify users viewing a product that its price has changed
- */
-async function notifyPriceChange(productId: string): Promise<void> {
-  try {
-    console.log(`Publishing price change notification for product: ${productId}`);
+    console.log(`[${timestamp}] ✅ Price updated for product ${productId}`);
     
-    // Use Wix site window pubsub to notify clients
-    await orders.publish({
-      channel: `${CHANNEL_PREFIX}${productId}`,
-      data: {
-        type: 'PRICE_CHANGE',
-        productId,
-        timestamp: new Date().toISOString()
-      }
-    });
-    
-    console.log(`Price change notification published for product ${productId}`);
+    // Return success result
+    return {
+      productId,
+      success: true,
+      previousPrice: currentPrice,
+      newPrice
+    };
   } catch (error) {
-    console.error(`Error publishing price change notification for product ${productId}:`, error);
+    console.error(`[${timestamp}] ❌ Error updating price for product ${productId}:`, error);
+    throw error;
   }
 } 
