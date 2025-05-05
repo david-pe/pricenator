@@ -1,0 +1,10 @@
+{
+  "name": "orderPriceUpdater",
+  "displayName": "Order Price Updater",
+  "description": "Updates product prices when orders are placed",
+  "inputs": [
+    {
+      "type": "ecom.orders.onOrderCreated"
+    }
+  ]
+} 
