@@ -9,6 +9,7 @@ import {
   StatusIndicator,
   WixDesignSystemProvider,
 } from '@wix/design-system';
+import '@wix/design-system/styles.global.css';
 
 export default function Index() {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -88,7 +89,7 @@ export default function Index() {
   };
 
   return (
-    <WixDesignSystemProvider>
+    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
       <Page>
         <Page.Header title="Pricenator" subtitle="Automatic price updates based on orders" />
         <Page.Content>
