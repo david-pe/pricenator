@@ -9,40 +9,23 @@ interface LineItem {
   };
 }
 
-/**
- * Initialize order event handlers
- * This function is called when the app starts and sets up event listeners
- */
-export function init() {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] 🔄 Initializing order event handlers`);
+orders.onOrderCreated(event => {
+  const eventTimestamp = new Date().toISOString();
+  console.log(`[${eventTimestamp}] 📥 Order created event received`);
   
-  try {
-    // Register the event handler using a more generic approach
-    // Note: Using the generic handler pattern to avoid TypeScript errors with the SDK
-    orders.onOrderCreated(event => {
-      const eventTimestamp = new Date().toISOString();
-      console.log(`[${eventTimestamp}] 📥 Order created event received`);
-      
-      // Log basic event info
-      if (event) {
-        console.log(`[${eventTimestamp}] Order ID: ${event.metadata?._id || 'unknown'}`);
-        console.log(`[${eventTimestamp}] Line items: ${event.entity?.lineItems?.length || 0}`);
-      } else {
-        console.log(`[${eventTimestamp}] Event object is null or undefined`);
-      }
-      
-      // Process the event asynchronously
-      processOrderEvent(event)
-        .then(() => console.log(`[${eventTimestamp}] ✅ Order event processing completed`))
-        .catch(error => console.error(`[${eventTimestamp}] ❌ Order event processing failed:`, error));
-    });
-    
-    console.log(`[${timestamp}] ✅ Order event handlers registered successfully`);
-  } catch (error) {
-    console.error(`[${timestamp}] ❌ Failed to register order event handlers:`, error);
+  // Log basic event info
+  if (event) {
+    console.log(`[${eventTimestamp}] Order ID: ${event.metadata?._id || 'unknown'}`);
+    console.log(`[${eventTimestamp}] Line items: ${event.entity?.lineItems?.length || 0}`);
+  } else {
+    console.log(`[${eventTimestamp}] Event object is null or undefined`);
   }
-}
+  
+  // Process the event asynchronously
+  processOrderEvent(event)
+    .then(() => console.log(`[${eventTimestamp}] ✅ Order event processing completed`))
+    .catch(error => console.error(`[${eventTimestamp}] ❌ Order event processing failed:`, error));
+});
 
 /**
  * Process an order event by updating product prices
